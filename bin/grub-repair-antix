@@ -1,0 +1,277 @@
+#!/bin/bash
+# File Name: grub-repair-antix
+# Version: 0.1.0
+# Purpose:Repair grub legacy boot loader.
+# adapted for antiX by anticapitalista@operamail.com 
+# Copyright: anticapitalista@operamail.com 2013
+# This version is heavily based on Grub Doctor by Anthony Nordquist 
+# Copyright 2009-2012 Anthony Nordquist and Tony Brijeski
+# Some of this code was borrowed from Tony Brijeski's Remastersys installer 
+# and Remastersys grub restore utility, and he deserves lots of credit for 
+# having code worth jacking. This code has been modified to suit the purpose 
+# of this program :) 
+# License: GPL-3
+# This is free software with NO WARRANTY. Use at your own risk!
+
+TEXTDOMAINDIR=/usr/share/locale
+TEXTDOMAIN=grub-repair-antix
+
+Question='yad  --wrap \
+               --center \
+               --button=gtk-no:1 \
+               --button=gtk-yes:0 \
+               --title=Grub-Repair'
+
+Info='yad --center \
+          --title=Grub-Repair'
+
+## Check for root if run outside of antix-system.sh
+TestRoot="$(whoami)"
+
+if [ "$TestRoot" != "root" ]; then
+ yad --title="Grub-Repair" \
+     --text=$"Must be run with root privileges, will now exit" \
+     --button=$"gtk-ok:1"
+ exit 0
+fi
+
+## Inform users what this app does.
+
+$Question --text=$"This is a boot-loader restoration utility (GRUB-LEGACY).\n\
+Would you like to restore the system boot-loader?"
+
+if [ "$?" != "0" ]; then
+ exit 0
+fi
+
+## Get the root partition from the user.
+
+Drives=$(cat /proc/partitions | grep -v loop | grep -v "Extended" | grep -v "extended" | grep -v "swap" \
+| grep -v "Swap" | grep -v "Hidden" | grep -v major | grep -v "^$" | grep -v "sr"| awk '{ print $4}')
+
+for i in $Drives; do
+  PartDrive="$i"
+## Get the label of the disk if available
+ Label=$(find /dev/disk/by-label/* -printf %f" "%l\\n | grep "$PartDrive" | awk '{print $1}' | sed -e 's|\\x20| |g')
+
+if [ "$Label" = "" ]; then
+ Label=' '
+else
+ Label="$Label     "
+fi
+PartDriveSize=$(grep -m 1 "$i" /proc/partitions | awk '{print $3}')
+
+if [ "$(echo "$PartDrive" | grep [0-9] )" != "" ]; then
+ if [ "$PartDriveSize" != "1" ]; then
+  if [ "$PartDriveMenu" = "" ]; then
+   PartDriveMenu=("$PartDrive" "$Label")
+  else
+   PartDriveMenu=("${PartDriveMenu[@]}" "$PartDrive" "$Label")
+  fi
+ fi
+fi
+if [ "$(echo "$PartDrive" | grep [0-9] )" = "" ]; then
+ GrubMenu=("${GrubMenu[@]}" "$PartDrive" "Master boot record of disk")
+fi
+done
+
+GrubMenu=("${GrubMenu[@]}" "root" "Root Partition")
+
+GetRootPart () {
+
+RootPart=""
+
+RootPart=$(yad --height="300" \
+               --list \
+               --title="Grub-Repair" \
+               --column="Name" \
+               --column="Partition Label"  \
+               --print-column=1 \
+               --button=$"gtk-quit:3" \
+               --button=$"gtk-ok:2" \
+               --text=$"Please select the root partition of a GRUB-LEGACY based distribution." "${PartDriveMenu[@]}")
+
+ret="$?"
+
+if [ "$ret" = "3" ]; then
+  $Question --text=$"Are you sure you want to cancel the installation?"
+  if [ "$?" = "0" ]; then
+   exit 0
+  else
+   GetRootPart
+   exit 0
+  fi
+elif [ "$ret" = "252" ]; then
+ GetRootPart
+ exit 0 
+elif [ "$RootPart" = "" ]; then
+ $Info --text=$"No partition selected, please retry." --button=$"gtk-ok:1"
+ GetRootPart
+ exit 0
+fi
+
+RootPart=$(echo "$RootPart" | awk -F '|' '{print $1}')
+}
+
+GetRootPart
+
+## Find out where grub is going
+
+GetGrubLocation (){
+GrubLocation=""
+
+GrubLocation=$(yad --list \
+                   --title="Grub-Repair" \
+                   --column="Name" \
+                   --column="Description" \
+                   --height="300" \
+                   --width="275" \
+                   --wrap \
+                   --button=$"gtk-quit:3" \
+                   --button=$"gtk-ok:2" \
+                   --text=$"Please select where to install grub.\n" "${GrubMenu[@]}")
+
+ret="$?"
+
+if [ "$ret" = "3" ]; then
+  $Question --text=$"Are you sure you want to cancel the installation?"
+  if [ "$?" = "0" ]; then
+   exit 0
+  else
+   GetGrubLocation
+   exit 0
+  fi
+elif [ "$ret" = "252" ]; then
+  $Question --text=$"Are you sure you want to cancel the installation?"
+  if [ "$?" = "0" ]; then
+   exit 0
+  else
+   GetGrubLocation
+   exit 0
+  fi
+elif [ "$GrubLocation" = "" ]; then
+ $Info --text=$"No location selected, please retry." \
+       --button=$"gtk-ok:1"
+ GetGrubLocation
+ exit 0
+fi
+
+GrubLocation=$(echo "$GrubLocation" | awk -F '|' '{print $1}')
+
+if [ "$GrubLocation" = "root" ]; then
+ GrubLocation="/dev/$RootPart"
+else
+ GrubLocation="/dev/$GrubLocation"
+fi
+
+}
+
+GetGrubLocation
+
+## Ask for confirmation before we do anything drastic
+$Question --text=$"Grub will be installed on "$GrubLocation"\n\nContinue with operation?"
+
+if [ "$?" = "1" ]; then
+ $Info --text=$"Operation cancelled, will now exit" \
+       --button=$"gtk-ok:1"
+ exit
+fi
+
+## Start Progress bar
+tail -f /usr/local/bin/grub-repair-antix | yad --center \
+                                         --pulsate \
+                                         --progress \
+                                         --auto-close \
+                                         --title="Grub-Repair" \
+                                         --no-buttons \
+                                         --text=$"Installing and setting up grub. Please Wait ...\n" &
+
+## Test to see if we are installing from a running system
+
+GrubTest1=$(mount | grep ' / ')
+GrubTest2=$(blkid /dev/"$RootPart" | awk -F 'UUID="' '{print $2}' | awk -F '"' '{print $1}')
+GrubTest3=$(echo "$GrubTest1" | grep "$GrubTest2")
+ 
+if [ "$GrubTest3" = "" ]; then
+ umount "$GrubDir"
+ umount -l "$GrubDir"
+ GrubDir="/tmp/remmnt/Target"
+
+ ## Mount the root directory
+ umount "/dev/$RootPart"
+ umount -l "/dev/$RootPart"
+ sleep 2
+ if [ ! -d $GrubDir ]; then
+  mkdir -p $GrubDir
+ fi
+ mount /dev/$RootPart $GrubDir -o rw
+
+## Check to ensure that the partition was mounted properly.
+
+if [ "$(mount | grep "/dev/$RootPart" | awk '{print $3}')" != "/tmp/remmnt/Target" ]; then
+if [ "$GrubTest3" = "" ]; then
+ killall -KILL tail
+ yad --width="250" --wrap \
+     --title="Grub-Repair" \
+     --text=$"Failed to mount $RootPart Please ensure there are no files in use on the partition and then run Grub-Repair again." \
+     --button=$"gtk-quit:1"
+ exit 0
+fi
+fi
+
+## Check that the architecture of the host system and root partition match.
+
+Arch1="$(file /usr/bin/file | awk '{print $3}')"
+Arch2="$(file /tmp/remmnt/Target/usr/bin/file | awk '{print $3}')"
+
+
+if [ "$Arch1" != "$Arch2" ]; then
+ killall -KILL tail
+ yad --width="250" \
+     --wrap  \
+     --title="Grub-Repair" \
+     --text=$"Architecture of the host system does not match the selected root partition. \
+To restore grub for $RootPart you will need to run Grub-Repair from a $Arch2 system." \
+     --button=$"gtk-quit:1"
+ umount -l /tmp/remmnt/Target
+ exit 0
+fi
+ 
+ ## Prepare chroot
+ mount -o bind /proc $GrubDir/proc
+ mount -o bind /dev  $GrubDir/dev
+ mount -o bind /sys  $GrubDir/sys
+ 
+ ## Copy antiX grub menu files.
+ cp /boot/grub/menu.lst $GrubDir/boot/grub 
+ cp /boot/grub/message $GrubDir/boot/grub 
+
+ ## The main part of this script
+ chroot $GrubDir grub-install "$GrubLocation"
+ chroot $GrubDir update-grub
+
+ ## Dismount
+ umount $GrubDir/proc
+ umount $GrubDir/dev
+ umount $GrubDir/sys
+else
+ grub-install "$GrubLocation"
+ update-grub
+fi
+
+## Unmount partition and remove temp folder.
+umount -l /tmp/remmnt/Target
+rm -rf /tmp/remmnt
+
+## Stop the progress bar
+TailPID=$(pgrep -f "tail -f /usr/local/bin/grub-repair-antix")
+
+kill $TailPID
+
+## Tell the user we are finished.
+$Info --text=$"Grub installation complete.\n" \
+      --button=$"gtk-ok:1"
+
+##
+#
+exit 0

@@ -1,0 +1,9 @@
+[Desktop Entry]
+Encoding=UTF-8
+Name=system
+Exec=antix-system.sh
+Icon=applications-system
+Terminal=false
+Type=Application
+Categories=System;
+NoDisplay=True

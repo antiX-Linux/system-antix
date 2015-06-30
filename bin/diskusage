@@ -1,0 +1,65 @@
+#!/bin/bash
+# File Name: disk usage
+# Version: 1.0.1
+# Purpose:  For showing a output of the disk usage for folder in the / directory
+# Authors: Dave 
+
+# Copyright (C) Tuesday, Feb. 7, 2011  by Dave / david.dejong02@gmail.com
+# License: gplv2
+# This file is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+#################################################################################################################################################
+
+# Root check 
+if [[ $UID != "0" ]]; then
+ gksu antix-system &
+ exit 1 ;
+fi
+
+echo "This is your disk usage, calculated using du" ;
+echo "Some of the folders listed do take an large amount, this is normal" ;
+echo "Along with the output of usage there will be a breif desciption of" ;
+echo "what is contained in the folder, and usage based on a fresh install" ;
+echo "of antiX." ;
+echo "" ;
+echo "Main binary executables folder, Size: ";
+du -h --max-depth 0 /bin ;
+echo "Boot loader files and kernel, Size: ";
+du -h --max-depth 0 /boot ;
+echo "Contains device files, Size: ";
+du -h --max-depth 0 /dev ; 
+echo "Contains system configuration files, Size: ";
+du -h --max-depth 0 /etc ; 
+echo "Contains users' files, Size: ";
+du -h --max-depth 0 /home ;
+echo "Contains program libraries, Size: ";
+du -h --max-depth 0 /lib ;
+echo "Stores additional programs, Size: ";
+du -h --max-depth 0 /opt ;
+echo "Contains proccess and kernel information, Size: ";
+du -h --max-depth 0 /proc ;
+echo "Root users home directory, Size: ";
+du -h --max-depth 0 /root ;
+echo "Contains system binary commands, Size: ";
+du -h --max-depth 0 /sbin ;
+echo "System security, Size: ";
+du -h --max-depth 0 /selinux ;
+echo "Contains system files, Size: ";
+du -h --max-depth 0 /sys ;
+echo "Holds temporary system files, Size: ";
+du -h --max-depth 0 /tmp ;
+echo "Contains most system commands and programs, Size: ";
+du -h --max-depth 0 /usr ;
+echo "Contains log files and spools, Size: ";
+du -h --max-depth 0 /var ;
