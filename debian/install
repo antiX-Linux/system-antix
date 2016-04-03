@@ -1,5 +1,3 @@
-system.desktop   /usr/share/applications/antix
-locale/*         /usr/share/locale 
-changelog.gz     /usr/share/doc/system-antix
-copyright        /usr/share/doc/system-antix
-bin/*            /usr/local/bin  
+system.desktop 	usr/share/applications/antix
+locale/* 	usr/share/locale 
+bin/* 		usr/local/bin  
